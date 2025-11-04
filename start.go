@@ -2,94 +2,253 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
 )
 
 type Task struct {
-	ID          int
-	Description string
-	Status      string
-	CreatedAt   time.Time
-	UpdateAt    time.Time
+	ID          int       `json:"id"`
+	Description string    `json:"description"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdateAt    time.Time `json:"updatedAt"`
 }
 
-func (t *Task) Add(tasks []*Task) []*Task {
+func (t *Task) Add(file string) {
+	var tasks []Task
+	if FileLen(file) != 0 {
+		infoFile, err := os.Open(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer infoFile.Close()
+		if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		fmt.Println("Записей нету")
+	}
+
 	t.Status = "todo"
 	t.ID = len(tasks) + 1
 	t.CreatedAt = time.Now()
 	t.UpdateAt = time.Now()
-	tasks = append(tasks, t)
+	tasks = append(tasks, *t)
 	fmt.Println("Задача добавлена!")
-	return tasks
-}
 
-func Update(tasks []*Task, id int, description string) {
-	for _, n := range tasks {
-		if n.ID == id {
-			n.Description = description
-			n.UpdateAt = time.Now()
-			fmt.Println("Задача успешно обновленна!")
-		} else {
-			fmt.Printf("ID с номером %v не найдено!\n", id)
-		}
+	returnFile, err := os.Create(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer returnFile.Close()
+
+	encoder := json.NewEncoder(returnFile)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(tasks); err != nil {
+		log.Fatal(err)
 	}
 }
 
-func Delete(tasks []*Task, id int) []*Task {
+func Update(file string, id int, description string) {
+	var tasks []Task
+	infoFile, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer infoFile.Close()
+
+	if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil {
+		log.Fatal(err)
+	}
+
+	flag := false
+	for i := range tasks {
+		if tasks[i].ID == id {
+			tasks[i].Description = description
+			tasks[i].UpdateAt = time.Now()
+			flag = true
+			fmt.Println("Задача успешно обновленна!")
+			break
+		}
+	}
+	if !flag {
+		fmt.Printf("ID с номером %v не найдено!\n", id)
+		return
+	}
+
+	returnFile, err := os.Create("tasks.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer returnFile.Close()
+
+	encoder := json.NewEncoder(returnFile)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(tasks); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func Delete(file string, id int) {
+	var tasks []Task
+	infoFile, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer infoFile.Close()
+
+	if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil {
+		log.Fatal(err)
+	}
+
+	flag := false
 	for i := 0; i < len(tasks); i++ {
 		if tasks[i].ID == id {
+			flag = true
 			tasks = append(tasks[:i], tasks[i+1:]...)
 			fmt.Printf("Задача с ID: %v была усешно удалена!\n", id)
-			return tasks
+			break
 		}
 	}
-	fmt.Printf("ID с номером %v не найдено!\n", id)
-	return tasks
-}
-
-func MarkProgress(tasks []*Task, id int) {
-	for _, n := range tasks {
-		if n.ID == id {
-			n.Status = "progress"
-			fmt.Printf("Статус задачи был успешно изменен на %v!\n", n.Status)
-		} else {
-			fmt.Printf("ID с номером %v не найдено!\n", id)
-		}
+	if !flag {
+		fmt.Printf("ID с номером %v не найдено!\n", id)
 	}
-}
 
-func MarkDone(tasks []*Task, id int) {
-	for _, n := range tasks {
-		if n.ID == id {
-			n.Status = "done"
-			fmt.Printf("Статус задачи был успешно изменен на %v!\n", n.Status)
-		} else {
-			fmt.Printf("ID с номером %v не найдено!\n", id)
-		}
+	returnFile, err := os.Create(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer returnFile.Close()
+
+	encoder := json.NewEncoder(returnFile)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(tasks); err != nil {
+		log.Fatal(err)
 	}
 }
 
-func AllTasks(tasks []*Task) {
-	if len(tasks) == 0 {
+func MarkProgress(file string, id int) {
+	var tasks []Task
+
+	infoFile, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer infoFile.Close()
+
+	if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil {
+		log.Fatal(err)
+	}
+
+	flag := false
+	for i := range tasks {
+		if tasks[i].ID == id {
+			tasks[i].Status = "progress"
+			tasks[i].UpdateAt = time.Now()
+			flag = true
+			fmt.Printf("Статус задачи был успешно изменен на %v!\n", tasks[i].Status)
+			break
+		}
+	}
+	if !flag {
+		fmt.Printf("ID с номером %v не найдено!\n", id)
+		return
+	}
+
+	returnFile, err := os.Create(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer returnFile.Close()
+
+	encoder := json.NewEncoder(returnFile)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(tasks); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func MarkDone(file string, id int) {
+	var tasks []Task
+
+	infoFile, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer infoFile.Close()
+
+	if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil {
+		log.Fatal(err)
+	}
+
+	flag := false
+	for i := range tasks {
+		if tasks[i].ID == id {
+			tasks[i].Status = "done"
+			tasks[i].UpdateAt = time.Now()
+			flag = true
+			fmt.Printf("Статус задачи был успешно изменен на %v!\n", tasks[i].Status)
+			break
+		}
+	}
+	if !flag {
+		fmt.Printf("ID с номером %v не найдено!\n", id)
+		return
+	}
+
+	returnFile, err := os.Create(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer returnFile.Close()
+
+	encoder := json.NewEncoder(returnFile)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(tasks); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func AllTasks(file string) {
+	var tasks []Task
+	if FileLen(file) == 0 {
 		fmt.Println("Список задач пуст.")
 		return
 	}
-	for _, n := range tasks {
-		fmt.Println("ID: ", n.ID)
-		fmt.Println("Description: ", n.Description)
-		fmt.Println("Status: ", n.Status)
-		fmt.Println("CreatedAt:  ", n.CreatedAt)
-		fmt.Println("UpdateAt: ", n.UpdateAt)
+	infoFile, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil {
+		log.Fatal(err)
+	}
+	for i := range tasks {
+		fmt.Println("ID: ", tasks[i].ID)
+		fmt.Println("Description: ", tasks[i].Description)
+		fmt.Println("Status: ", tasks[i].Status)
+		fmt.Println("CreatedAt:  ", tasks[i].CreatedAt)
+		fmt.Println("UpdateAt: ", tasks[i].UpdateAt)
 	}
 }
 
-func main() {
-	var tasks []*Task
-	scanner := bufio.NewScanner(os.Stdin)
+func FileLen(file string) int {
+	info, err := os.Stat(file)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0
+		}
+		log.Fatal(err)
+	}
+	return int(info.Size())
+}
 
+func main() {
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Println(FileLen("tasks.json"))
 	for {
 		fmt.Println("\n~~~Меню~~~\t")
 		fmt.Println("1. Добавить задачу")
@@ -109,9 +268,9 @@ func main() {
 			scanner.Scan()
 			desc := strings.TrimSpace(scanner.Text())
 			t := &Task{Description: desc}
-			tasks = t.Add(tasks)
+			t.Add("tasks.json")
 		case 2:
-			AllTasks(tasks)
+			AllTasks("tasks.json")
 		case 3:
 			var id int
 			fmt.Print("Введите ID задачи: ")
@@ -119,22 +278,22 @@ func main() {
 			fmt.Print("Введите описание новое задачи: ")
 			scanner.Scan()
 			desc := strings.TrimSpace(scanner.Text())
-			Update(tasks, id, desc)
+			Update("tasks.json", id, desc)
 		case 4:
 			var id int
 			fmt.Print("Введите ID задачи: ")
 			fmt.Scanln(&id)
-			MarkProgress(tasks, id)
+			MarkProgress("tasks.json", id)
 		case 5:
 			var id int
 			fmt.Print("Введите ID задачи: ")
 			fmt.Scanln(&id)
-			MarkDone(tasks, id)
+			MarkDone("tasks.json", id)
 		case 6:
 			var id int
 			fmt.Print("Введите ID задачи: ")
 			fmt.Scanln(&id)
-			Delete(tasks, id)
+			Delete("tasks.json", id)
 		case 0:
 			fmt.Println("Выход")
 			return
