@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -263,58 +264,110 @@ func FileLen(file string) int {
 }
 
 func main() {
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println(FileLen("tasks.json"))
+	args := os.Args
+	if len(args) > 1 {
+		switchComand(args[1:])
+		return
+	}
+	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		fmt.Println("\n~~~Меню~~~\t")
-		fmt.Println("1. Добавить задачу")
-		fmt.Println("2. Показать все задачи")
-		fmt.Println("3. Обновить задачу")
-		fmt.Println("4. Изменить статус на 'progress'")
-		fmt.Println("5. Изменить статус на 'done'")
-		fmt.Println("6. Удалить задачу")
-		fmt.Println("0. Выход")
+		fmt.Println("add: Добавить задачу")
+		fmt.Println("list: Показать все задачи")
+		fmt.Println("update: Обновить задачу")
+		fmt.Println("mark-in-progress: Изменить статус на 'progress'")
+		fmt.Println("mark-in-done: Изменить статус на 'done'")
+		fmt.Println("delete: Удалить задачу")
+		fmt.Println("complete: Выход")
 		fmt.Print("Выберите действие: ")
 
-		var choice int
-		fmt.Scanln(&choice)
-		switch choice {
-		case 1:
-			fmt.Print("Введите описание задачи: ")
-			scanner.Scan()
-			desc := strings.TrimSpace(scanner.Text())
-			t := &Task{Description: desc}
-			t.Add("tasks.json")
-		case 2:
-			AllTasks("tasks.json")
-		case 3:
-			var id int
-			fmt.Print("Введите ID задачи: ")
-			fmt.Scanln(&id)
-			fmt.Print("Введите описание новое задачи: ")
-			scanner.Scan()
-			desc := strings.TrimSpace(scanner.Text())
-			Update("tasks.json", id, desc)
-		case 4:
-			var id int
-			fmt.Print("Введите ID задачи: ")
-			fmt.Scanln(&id)
-			MarkProgress("tasks.json", id)
-		case 5:
-			var id int
-			fmt.Print("Введите ID задачи: ")
-			fmt.Scanln(&id)
-			MarkDone("tasks.json", id)
-		case 6:
-			var id int
-			fmt.Print("Введите ID задачи: ")
-			fmt.Scanln(&id)
-			Delete("tasks.json", id)
-		case 0:
-			fmt.Println("Выход")
-			return
-		default:
-			fmt.Print("Ошибка при вводе пункта, попробуйте снова.")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			continue
 		}
+
+		parts := strings.Fields(input)
+		switchComand(parts)
+	}
+}
+
+func switchComand(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Укажите команду")
+		return
+	}
+
+	choice := args[0]
+
+	switch choice {
+	case "add":
+		if len(args) < 2 {
+			fmt.Println("Укажите описание задачи")
+			return
+		}
+		desc := strings.Join(args[1:], " ")
+		t := &Task{Description: desc}
+		t.Add("tasks.json")
+
+	case "list":
+		AllTasks("tasks.json")
+
+	case "update":
+		if len(args) < 3 {
+			fmt.Println("Использование: update <ID> <новое описание>")
+			return
+		}
+		id, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("ID должен быть числом")
+			return
+		}
+		desc := strings.Join(args[2:], " ")
+		Update("tasks.json", id, desc)
+
+	case "mark-in-progress":
+		if len(args) < 2 {
+			fmt.Println("Укажите ID задачи")
+			return
+		}
+		id, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("ID должен быть числом")
+			return
+		}
+		MarkProgress("tasks.json", id)
+
+	case "mark-in-done":
+		if len(args) < 2 {
+			fmt.Println("Укажите ID задачи")
+			return
+		}
+		id, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("ID должен быть числом")
+			return
+		}
+		MarkDone("tasks.json", id)
+
+	case "delete":
+		if len(args) < 2 {
+			fmt.Println("Укажите ID задачи")
+			return
+		}
+		id, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("ID должен быть числом")
+			return
+		}
+		Delete("tasks.json", id)
+
+	case "complete":
+		fmt.Println("Выход")
+		os.Exit(0)
+
+	default:
+		fmt.Println("Неизвестная команда:", choice)
 	}
 }
