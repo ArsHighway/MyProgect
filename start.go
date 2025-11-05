@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -20,26 +21,31 @@ type Task struct {
 
 func (t *Task) Add(file string) {
 	var tasks []Task
-	if FileLen(file) != 0 {
-		infoFile, err := os.Open(file)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer infoFile.Close()
-		if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil {
+	infoFile, err := os.Open(file)
+	if err != nil {
+		if os.IsNotExist(err) {
+			tasks = []Task{}
+		} else {
 			log.Fatal(err)
 		}
 	} else {
-		fmt.Println("Записей нету")
+		defer infoFile.Close()
+		if err := json.NewDecoder(infoFile).Decode(&tasks); err != nil && err != io.EOF {
+			log.Fatal(err)
+		}
 	}
-
 	t.Status = "todo"
-	t.ID = len(tasks) + 1
 	t.CreatedAt = time.Now()
 	t.UpdateAt = time.Now()
+	maxId := 0
+	for i := range tasks {
+		if tasks[i].ID > maxId {
+			maxId = tasks[i].ID
+		}
+	}
+	t.ID = maxId + 1
 	tasks = append(tasks, *t)
 	fmt.Println("Задача добавлена!")
-
 	returnFile, err := os.Create(file)
 	if err != nil {
 		log.Fatal(err)
@@ -116,8 +122,18 @@ func Delete(file string, id int) {
 	}
 	if !flag {
 		fmt.Printf("ID с номером %v не найдено!\n", id)
+		return
 	}
+	if len(tasks) == 0 {
+		returnFile, err := os.Create(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer returnFile.Close()
 
+		fmt.Println("Все задачи удалены, файл очищен.")
+		return
+	}
 	returnFile, err := os.Create(file)
 	if err != nil {
 		log.Fatal(err)
